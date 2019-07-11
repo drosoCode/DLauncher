@@ -1,0 +1,151 @@
+<html>
+    <head>
+        <title>Process Monitor Background Window</title>
+        
+        <script>
+    
+            const { ipcRenderer } = window.require('electron');
+            const node_os = require("os");
+            const node_fs = require("fs");
+            const node_path = require('path');
+            const psList = require('ps-list');
+            var data = null;
+            var debug = true;
+            
+            var hostname = node_os.hostname();
+            var systemConfig = JSON.parse(node_fs.readFileSync(node_path.join(__dirname, 'config.json')));
+            if(debug)
+            {
+                console.log("current config:")
+                console.log(systemConfig)
+            }
+            
+            //intialisation: read data.json, make gameList and set processMonitor timer
+            if(systemConfig["syncPath"] != null && node_fs.existsSync(node_path.join(systemConfig["syncPath"],"data.json")))
+            {
+                data = JSON.parse(node_fs.readFileSync(node_path.join(systemConfig["syncPath"],"data.json")));
+                debug = systemConfig["debug"];
+                if(debug)
+                    console.log("data loaded");
+                    
+                gameList = [];
+                let i = 0;
+                data["games"].forEach(function(item)
+                {
+                    gameList[i] = item["processName"];
+                    i++;
+                });
+                
+                if(debug)
+                    console.log("gameList:"+gameList);
+                
+                var startTime = 0;
+                var activeGame = "none";
+                var newActiveGame = "none";
+
+                var delayTime = 1000*systemConfig["scanInterval"];//convert sec to milisec
+                if(debug)
+                    console.log("scanInterval:"+delayTime.toString());
+                    
+                setInterval(processMonitor, delayTime);
+                ipcRenderer.send('renderer', {"type":"guiInfo","data":"Process Monitor Started","color":"success"})
+            }
+            else
+            {
+                ipcRenderer.send('renderer', {"type":"guiInfo","data":"Unable to open data file (from process)","color":"danger"})
+            }
+            
+            function processMonitor()
+            {
+                    if(debug)
+                    {
+                        console.log("scanning ...");
+                    }
+
+                    (async () => {
+                        process = await psList();
+                        
+                        if(debug)
+                            console.log(process)
+                            
+                        let found = false;
+                        let i = 0;
+                        while(i<process.length && !found)
+                        {
+                            let item = process[i];
+                            let index = gameList.indexOf(item["name"]);
+                            if(index != -1)
+                            {
+                                if(debug)
+                                {
+                                    console.log("new active game");
+                                    console.log(item["name"]);
+                                }
+                                
+                                newActiveGame = item["name"];
+                                found = true;
+                            }
+                            i++;
+                        }
+
+                        if(!found && activeGame != "none")
+                        {
+                            newActiveGame = "none";
+                            if(debug)
+                                console.log("reset new active game");
+                        }
+
+                        if(newActiveGame != activeGame)
+                        {
+                            if(debug)
+                                console.log("new different from active")
+                                
+                            if(activeGame != "none")
+                            {
+                                ipcRenderer.send('renderer', {"type":"gameStatus","data":gameList.indexOf(activeGame),"status":"idle"})
+                                //sync files for this game
+                                ipcRenderer.send('background-sync', {"type":"sync","data":gameList.indexOf(activeGame)})
+
+                                var timeDiff = parseFloat(((new Date()-startTime+108000000)/(1000*60*60*60)).toFixed(1));
+                                
+                                if(debug)
+                                {                                
+                                    console.log("there was an active game")
+                                    console.log(new Date()-startTime);
+                                    console.log(timeDiff);
+                                }
+                                
+                                data["games"][gameList.indexOf(activeGame)]["play7"] += timeDiff;
+                                data["games"][gameList.indexOf(activeGame)]["playTotal"] += timeDiff;
+                                
+                                node_fs.writeFile(node_path.join(systemConfig["syncPath"],'data.json'), JSON.stringify(data), (err) => {
+                                    if (err) {
+                                        alert("An error ocurred updating the file" + err.message);
+                                        if(debug)
+                                            console.log(err);
+                                        return;
+                                    }});
+                            }
+                            if(newActiveGame != "none")
+                            {
+                                if(debug)
+                                    console.log("game is running");
+                                ipcRenderer.send('renderer', {"type":"gameStatus","data":gameList.indexOf(newActiveGame),"status":"running"})
+                                startTime = new Date();
+                            }
+                            activeGame = newActiveGame;
+                        }
+                        if(debug)
+                        {
+                            console.log("scan end")
+                        }
+                    })();
+            }
+
+        </script>
+    </head>
+    <body>
+        Process Monitor Background Window<br>
+        (This window should not be visible)
+    </body>
+</html>

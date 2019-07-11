@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>DLauncher</title>
+        <script>if (typeof module === 'object') {window.module = module; module = undefined;} </script>
+        <link rel="stylesheet" href="res/css/bootstrap.min.css"/>
+        <link href="res/css/fontawesome.min.css" rel="stylesheet"/>
+        <script src="./res/js/jquery-3.3.1.slim.min.js"></script>
+        <script src="./res/js/popper.min.js"></script>
+        <script src="./res/js/bootstrap.min.js"></script>
+        <style>
+            .btnImg1 {
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            -ms-transform: translate(-50%, -50%);
+            color: white;
+            font-size: 16px;
+            padding: 12px 24px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            }
+            .btnImg2 {
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            -ms-transform: translate(-50%, -50%);
+            color: white;
+            font-size: 16px;
+            padding: 12px 24px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            }
+        </style>
+  </head>
+
+  <body background="background.jpg" class="pt-5">
+
+      <nav class="navbar navbar-expand-sm navbar-dark bg-dark fixed-top">
+        <a class="navbar-brand" href="#" id="hostname"></a>
+          <ul class="navbar-nav">
+            <li class="nav-item">
+              <a class="nav-link" onclick="showSystemModal()"><i class="fas fa-cog"></i>&nbsp;Settings</a>
+            </li>
+            <li class="nav-item" style="display:none;" id="navForceSync">
+              <a class="nav-link" onclick="forceFilesSync()"><i class="fas fa-sync-alt"></i>&nbsp;Force Sync</a>
+            </li>
+            <li class="nav-item" style="display:none;" id="navAddGame">
+              <a class="nav-link" onclick="showGameModal(-1)"><i class="fas fa-plus"></i>&nbsp;Add Game</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" onclick="quitApp()"><i class="fas fa-times"></i>&nbsp;Exit</a>
+            </li>
+          </ul>
+          <ul class="nav navbar-nav ml-auto justify-content-end">
+            <li class="nav-item">
+                <span class="text-success" id="statusText">
+                  Starting ...
+                </span>
+            </li>
+          </ul>
+      </nav>
+      <br>
+      
+
+    <div id="gameCards" class="row"></div>
+
+    <div class="modal fade" id="modalSystemSettings" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-xl text-white">
+          <div class="modal-content bg-dark">
+            <div class="modal-header">
+              <h5 class="modal-title"><i class="fas fa-cogs fa-fw"></i>&nbsp;&nbsp;System Settings:</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info" role="alert">
+                    We are using <i class="fab fa-node-js"></i> Node.js <span id="node-version"></span>, <i class="fab fa-chrome"></i> Chromium <span id="chrome-version"></span>, and <i class="fab fa-react"></i> Electron <span id="electron-version"></span>.
+                </div>
+                Sync Folder Path:
+                <div class="input-group">
+                  <input type="text" class="form-control" id="input_systemSave" placeholder="Path">
+                  <div class="input-group-append">
+                     <button class="btn btn-primary" type="button" onclick="openSyncFolder();" id="systemOpenSyncFolder" style="display:none;"><i class="fas fa-folder-open fa-fw"></i>&nbsp;Open</button>
+                     <button class="btn btn-secondary" type="button" onclick="openDialog('input_systemSave',1);"><i class="fas fa-hdd fa-fw"></i>&nbsp;Browse</button>
+                  </div>
+                </div>
+                Autostart:
+                <div class="custom-control custom-checkbox">
+                    <input type="checkbox" class="custom-control-input" id="input_systemStart">
+                    <label class="custom-control-label" for="input_systemStart">Start on boot</label>
+                </div>
+                scanInterval (in sec):
+                <input type="number" class="form-control" id="input_scanInterval" placeholder="">
+                Debug:
+                <div class="custom-control custom-checkbox">
+                    <input type="checkbox" class="custom-control-input" id="input_systemDebug">
+                    <label class="custom-control-label" for="input_systemDebug">Enable Debug</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-danger" data-dismiss="modal"><i class="fas fa-times fa-fw"></i>&nbsp;Close</button>
+              <button type="button" class="btn btn-success" onclick="saveSystemSettings()"><i class="fas fa-check fa-fw"></i>&nbsp;Save changes</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <div class="modal fade" id="modalGameSettings" tabindex="-1" role="dialog" aria-hidden="true">
+          <div class="modal-dialog modal-xl bg-dark text-white">
+            <div class="modal-content  bg-dark">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-gamepad fa-fw"></i>&nbsp;&nbsp;Game Settings</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    Game Name:
+                    <input type="text" class="form-control" id="input_gameName" placeholder="">
+                    Game Executable:
+                    <div class="input-group">
+                      <input type="text" class="form-control" id="input_gameExe" placeholder="Path">
+                      <div class="input-group-append">
+                        <button class="btn btn-secondary" type="button" onclick="openDialog('input_gameExe',3);"><i class="fas fa-hdd fa-fw"></i>&nbsp;Browse</button>
+                      </div>
+                    </div>
+                    Game Save Path:
+                    <div class="input-group">
+                      <input type="text" class="form-control" id="input_gameSave" placeholder="Path">
+                      <div class="input-group-append">
+                        <button class="btn btn-secondary" type="button" onclick="openDialog('input_gameSave',1);"><i class="fas fa-hdd fa-fw"></i>&nbsp;Browse</button>
+                      </div>
+                    </div>
+                    Game Launch Args:
+                    <input type="text" class="form-control" id="input_gameArgs" placeholder="">
+                    Game Image:
+                    <div class="input-group">
+                      <input type="text" class="form-control" id="input_gameImg" placeholder="Path">
+                      <div class="input-group-append">
+                        <button class="btn btn-secondary" type="button" onclick="openDialog('input_gameImg',2);"><i class="fas fa-hdd fa-fw"></i>&nbsp;Browse</button>
+                      </div>
+                    </div>
+
+                    <div class="custom-control custom-checkbox">
+                      <input type="checkbox" class="custom-control-input" id="input_gameSync">
+                      <label class="custom-control-label" for="input_gameSync">Enable Save Sync</label>
+                    </div>
+
+                    <input type="number" style="display:none;" id="modal_gameID">
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-danger" data-dismiss="modal"><i class="fas fa-times fa-fw"></i>&nbsp;Close</button>
+                  <button type="button" class="btn btn-success" onclick="saveGameSettings()"><i class="fas fa-check fa-fw"></i>&nbsp;Save changes</button>
+                </div>
+            </div>
+          </div>
+        </div>
+
+    <script src="./renderer.js"></script>
+
+    <script>
+      $(function () {
+          $('[data-toggle="tooltip"]').tooltip()
+      });
+    </script>
+
+  </body>
+</html>

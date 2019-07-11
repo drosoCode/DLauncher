@@ -1,0 +1,315 @@
+<html>
+    <head>
+        <title>Sync Background Window</title>
+        <script>
+            
+            Date.prototype.getWeek = function() {
+                var onejan = new Date(this.getFullYear(),0,1);
+                return Math.ceil((((this - onejan) / 86400000) + onejan.getDay()+1)/7);
+            }
+
+            function sleep(milliseconds) {
+                var dt = new Date();
+                while ((new Date()) - dt <= milliseconds) { /* Do nothing */ }
+            }
+
+
+            const { ipcRenderer } = window.require('electron');
+            const AutoLaunch = require('auto-launch');
+
+            const node_fs = require('fs');
+            const node_os = require("os");
+            const node_path = require('path');
+            var data = null;
+            var debug = true;
+            var sleepMessage = 180;//sleep time before send message to guiInfo
+        
+
+            var hostname = node_os.hostname();
+            if(debug)
+                console.log("current hostname:"+hostname)
+            var systemConfig = JSON.parse(node_fs.readFileSync(node_path.join(__dirname, 'config.json')));
+            
+            //intialisation: read data.json
+            if(systemConfig["syncPath"] != null && node_fs.existsSync(node_path.join(systemConfig["syncPath"],"data.json")))
+            {
+                data = JSON.parse(node_fs.readFileSync(node_path.join(systemConfig["syncPath"],"data.json")));
+                debug = systemConfig["debug"];
+                if(debug)
+                    console.log("data loaded");
+            }
+            else
+            {
+                sleep(sleepMessage);
+                ipcRenderer.send('renderer', {"type":"guiInfo","data":"Unable to open data file (from sync)","color":"danger"})
+            }
+
+            //reset play7 if this is a new week
+            if(data != null)
+            {
+                let lastReset = data["lastWeekReset"];
+                if(debug)
+                    console.log("lastWeekReset:"+lastReset)
+                let nowDate = new Date();
+                if(nowDate.getWeek() != lastReset)
+                {
+                    if(debug)
+                        console.log("week: "+nowDate.getWeek().toString()+",resetting counters");
+
+                    sleep(sleepMessage);
+                    ipcRenderer.send('renderer', {"type":"guiInfo","data":"Resetting week counters","color":"info"})
+
+                    data["lastWeekReset"] = nowDate.getWeek();
+                    let i = 0;
+                    while(i!=data["games"].length)
+                    {
+                        data["games"][i]["play7"] = 0;
+                        i++;
+                    }
+                    node_fs.writeFile(node_path.join(systemConfig["syncPath"],"data.json"), JSON.stringify(data), (err) => {
+                    if (err) {
+                        if(debug)
+                            console.log(err);
+                        return;
+                    }
+                    else {
+                        if(debug)
+                            console.log("success")
+
+                        sleep(sleepMessage);
+                        ipcRenderer.send('renderer', {"type":"guiInfo","data":"Success","color":"success"})
+                    }
+                    });
+                }
+            }
+
+            
+            //check autoLaunch settings
+            let autoLaunch = new AutoLaunch({
+                name: 'DLauncher',
+                isHidden: true
+            });
+            if(debug)
+                console.log("checking autoLaunch")
+            autoLaunch.isEnabled().then((isEnabled) => 
+            {
+                if(!isEnabled && systemConfig["autoStart"])
+                {
+                    autoLaunch.enable();
+                    if(debug)
+                        console.log("enabling");
+                }
+                else if(isEnabled && !systemConfig["autoStart"])
+                {
+                    autoLaunch.disable();
+                    if(debug)
+                        console.log("disabling");
+                } 
+            });
+            
+            
+
+            // Async message handler
+            ipcRenderer.on('background-sync', (event, arg) => {
+                if(arg["type"] == "forceSync")
+                {
+                    if(debug)
+                        console.log("received forceSync message")
+                    event.sender.send('renderer', {"type":"guiInfo","data":"Forcing Sync ...","color":"warning"})
+                    syncFiles(arg["data"]);
+                }
+                else if(arg["type"] == "sync")
+                {
+                    if(debug)
+                    {
+                        console.log("received sync message")
+                        console.log(arg)
+                    }
+                    event.sender.send('renderer', {"type":"guiInfo","data":"Syncing ...","color":"warning"})
+                    syncFiles(arg["data"]);
+                }
+            })
+
+            
+            function syncFiles(id="all")
+            {
+                if(data != null)
+                {
+                    let fails = 0;
+                    if(id == "all" || isNaN(id))
+                    {
+                        sleep(sleepMessage);
+                        ipcRenderer.send('renderer', {"type":"guiInfo","data":"Syncing all games ...","color":"warning"})
+
+                        let i = 0;
+                        while(i!=data["games"].length)
+                        {
+                            if(debug)
+                            {
+                                console.log("sync:")
+                                console.log(data["games"][i]["name"])
+                            }
+                            fails += syncGame(i);
+                            i++;
+                        }
+                    }
+                    else
+                    {
+                        sleep(sleepMessage);
+                        ipcRenderer.send('renderer', {"type":"guiInfo","data":"Syncing "+data["games"][id]["name"]+" ...","color":"warning"})
+                        fails += syncGame(id);
+                    }
+                    if(fails == 0)
+                    {
+                        sleep(sleepMessage);
+                        ipcRenderer.send('renderer', {"type":"guiInfo","data":"Sync completed","color":"success"})
+                    }
+                    else
+                    {
+                        sleep(sleepMessage);
+                        ipcRenderer.send('renderer', {"type":"guiInfo","data":"Sync failed","color":"danger"})
+                    }
+                }
+                else
+                {
+                    sleep(sleepMessage);
+                    ipcRenderer.send('renderer', {"type":"guiInfo","data":"Data not available, sync arborted","color":"danger"})
+                }
+            }
+
+            function syncGame(id)
+            {
+                gameData = data["games"][id];
+                let fails = 0;
+                let found = false;
+
+                sleep(sleepMessage);
+                ipcRenderer.send('renderer', {"type":"gameSyncStatus","data":id,"status":"waiting"})
+
+                gameData["installed"].forEach(function(item)
+                {
+                    if(item["name"] == hostname)
+                    {
+                        let gamePath = item["savePath"];
+                        let syncPath = node_path.join(systemConfig["syncPath"],"saves",gameData["name"])
+                            
+                        if(gameData["enableSync"])
+                        {
+                            fails += syncDir(gamePath,syncPath);
+                            fails += syncDir(syncPath,gamePath);
+
+                            if(fails == 0)
+                            {
+                                sleep(sleepMessage);
+                                ipcRenderer.send('renderer', {"type":"gameSyncStatus","data":id,"status":"ok"})
+                            }
+                            else
+                            {
+                                sleep(sleepMessage);
+                                ipcRenderer.send('renderer', {"type":"gameSyncStatus","data":id,"status":"failed"})
+                                ipcRenderer.send('renderer', {"type":"guiInfo","data":"Failed to sync"+gameData["name"]+"with "+fails.toString()+" errors","color":"danger"})
+                            }
+                        }
+                        else
+                        {
+                            if(debug)
+                                console.log("sync disabled")
+                            sleep(sleepMessage);
+                            ipcRenderer.send('renderer', {"type":"gameSyncStatus","data":id,"status":"disabled"})
+                        }
+                        found = true;
+                        return;
+                    }
+                });
+                
+                if(!found)
+                {
+                    if(debug)
+                        console.log("sync unavailable for this pc")
+                    sleep(sleepMessage);
+                    ipcRenderer.send('renderer', {"type":"gameSyncStatus","data":id,"status":"unavailable"})
+                }
+                return fails;
+            }
+            
+
+            function syncDir(gamePath,syncPath)
+            {
+                if(debug)
+                {
+                    console.log("syncing game")
+                    console.log(gamePath)
+                    console.log(syncPath)
+                }
+                
+                if(node_fs.existsSync(gamePath) && node_fs.existsSync(syncPath))
+                {
+                    var fails = 0;
+                    let syncPathContent = node_fs.readdirSync(syncPath)
+                    node_fs.readdirSync(gamePath).forEach(file => 
+                    {
+                        let gameStat = node_fs.statSync(node_path.join(gamePath,file))
+                        if(gameStat.isDirectory())
+                        {
+                            if(!node_fs.existsSync(node_path.join(syncPath,file)))
+                            {
+                                node_fs.mkdirSync(node_path.join(syncPath,file));
+                            }
+                            
+                            if(debug)
+                                console.log("directory detected")
+                                
+                            fails += syncDir(node_path.join(gamePath,file),node_path.join(syncPath,file))
+                        }
+                        else
+                        {
+                            if(debug)
+                                console.log(syncPathContent)
+                                
+                            if(syncPathContent.includes(file))
+                            {
+                                let gameTime = gameStat.mtime;
+                                let syncTime = node_fs.statSync(node_path.join(syncPath,file)).mtime;
+                                if(gameTime>syncTime)
+                                {
+                                    node_fs.copyFile(node_path.join(gamePath,file), node_path.join(syncPath,file), (err) => {
+                                    if (err)
+                                    {
+                                        fails++;
+                                        if(debug)
+                                            console.log("file sync failed between :"+node_path.join(gamePath,file)+" and "+node_path.join(syncPath,file))
+                                    }
+                                    });
+                                }
+                            }
+                            else
+                            {
+                                node_fs.copyFile(node_path.join(gamePath,file), node_path.join(syncPath,file), (err) => {
+                                    if (err)
+                                    {
+                                        fails++;
+                                        if(debug)
+                                            console.log("file sync failed between :"+node_path.join(gamePath,file)+" and "+node_path.join(syncPath,file))
+                                    }
+                                });
+                            }
+                        }  
+                    });
+                    return fails;
+                }
+                else
+                {
+                    if(debug)
+                        console.log("Sync Error, availability:"+node_fs.existsSync(gamePath)+" and "+node_fs.existsSync(syncPath))
+                    return 1;
+                }
+            }
+
+        
+        </script>
+    </head>
+    <body>
+        Sync Background Window<br>
+        (This window should not be visible)
+    </body>
+</html>
