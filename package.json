@@ -1,5 +1,6 @@
 {
   "name": "dlauncher",
+  "productName": "DLauncher",
   "version": "1.0.0",
   "description": "Simple electron game launcher",
   "main": "main.js",
@@ -15,13 +16,16 @@
   ],
   "author": "drosoCode",
   "license": "MIT",
+  "icon": "res/icon.ico",
   "bugs": {
     "url": "https://github.com/drosoCode/DLauncher/issues"
   },
   "homepage": "https://github.com/drosoCode/DLauncher#readme",
+  "devDependencies": {
+    "electron": "^5.0.6"
+  },
   "dependencies": {
     "auto-launch": "^5.0.5",
-    "electron": "^5.0.6",
     "fs": "0.0.1-security",
     "ps-list": "^6.3.0"
   }
