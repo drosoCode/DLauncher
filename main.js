@@ -132,6 +132,12 @@ app.on('ready', function(){
   createWindow();
 })
 
+app.requestSingleInstanceLock()
+app.on('second-instance', (event, argv, cwd) => {
+  app.isQuiting = true
+  app.quit()
+})
+
 
 //ipc listeners
 
