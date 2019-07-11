@@ -101,7 +101,7 @@ ipcRenderer.on('renderer', (event, arg) => {
     else if(arg["type"] == "updateGameTxt")
     {
         let text = "This Week: "+arg["play7"].toString()+" H<br>Total: "+arg["playTotal"].toString()+" H"+"<br>Last Use: "+arg["lastDate"];
-        document.getElementById("card0_gameTitle").setAttribute("data-original-title",text);
+        document.getElementById("card"+arg["data"]+"_gameTitle").setAttribute("data-original-title",text);
     }
 })
 
