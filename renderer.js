@@ -98,6 +98,11 @@ ipcRenderer.on('renderer', (event, arg) => {
             footer.classList.add("bg-secondary");
         }
     }
+    else if(arg["type"] == "updateGameTxt")
+    {
+        let text = "This Week: "+arg["play7"].toString()+" H<br>Total: "+arg["playTotal"].toString()+" H"+"<br>Last Use: "+arg["lastDate"];
+        document.getElementById("card0_gameTitle").setAttribute("data-original-title",text);
+    }
 })
 
 function removeBackgroundColorClasses(element)
@@ -127,7 +132,7 @@ function generateGameCards()
   let i = 0;
   data["games"].forEach(function(item) 
   {
-      txt = "This Week: "+item["play7"].toString()+" H<br>Total: "+item["playTotal"].toString()+" H";
+      txt = "This Week: "+item["play7"].toString()+" H<br>Total: "+item["playTotal"].toString()+" H"+"<br>Last Use: "+item["lastDate"];
       doc.innerHTML += makeCard(i,item["name"],item["img"],txt);
       i++;
   });
@@ -253,6 +258,7 @@ function saveGameSettings()
         data["games"][id]["installed"] = [];
         data["games"][id]["play7"] = 0;
         data["games"][id]["playTotal"] = 0;
+        data["games"][id]["lastDate"] = "Never";
 
         if(!node_fs.existsSync(node_path.join(exchangeFolderPath,"saves",gameName)))
         {
@@ -339,7 +345,7 @@ function makeCard(id,name,img,text)
             html += "<div class=\"progress-bar progress-bar-striped progress-bar-animated bg-info\" role=\"progressbar\" id=\"card"+id+"_statusBar\" style=\"width: 100%\"></div>";
          html += "</div>";
          html += "<div class=\"card-footer\" id=\"card"+id+"_footer\">";
-            html += "<p class=\"card-text\" style=\"font-size:12px;white-space:nowrap;overflow:hidden;\" data-toggle=\"tooltip\" data-html=\"true\" data-placement=\"top\" title=\""+text+"\">"+name+"</p>";
+            html += "<p class=\"card-text\" style=\"font-size:12px;white-space:nowrap;overflow:hidden;\" data-toggle=\"tooltip\" data-html=\"true\" data-placement=\"top\" id=\"card"+id+"_gameTitle\" title=\""+text+"\">"+name+"</p>";
          html += "</div>";
         html += "</div>";
 
