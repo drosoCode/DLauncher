@@ -106,7 +106,7 @@
                                 //sync files for this game
                                 ipcRenderer.send('background-sync', {"type":"sync","data":gameList.indexOf(activeGame)})
 
-                                var timeDiff = parseFloat(((new Date()-startTime+108000000)/(1000*60*60*60)).toFixed(1));
+                                var timeDiff = parseFloat(((new Date()-startTime)/(1000*60*60*60)).toFixed(1));
                                 
                                 if(debug)
                                 {                                
@@ -115,9 +115,18 @@
                                     console.log(timeDiff);
                                 }
                                 
+                                //set new last date
+                                lastDate = new Date();
+                                lastDateStr = lastDate.toLocaleDateString("fr-FR")+" "+lastDate.getHours()+":"+lastDate.getMinutes();
+                                data["games"][gameList.indexOf(activeGame)]["lastDate"] = lastDateStr;
+
                                 data["games"][gameList.indexOf(activeGame)]["play7"] += timeDiff;
                                 data["games"][gameList.indexOf(activeGame)]["playTotal"] += timeDiff;
+
+                                //send modifs to gui
+                                ipcRenderer.send('renderer', {"type":"updateGameTxt","data":gameList.indexOf(activeGame),"play7":data["games"][gameList.indexOf(activeGame)]["play7"],"playTotal":data["games"][gameList.indexOf(activeGame)]["playTotal"],"lastDate":lastDateStr})
                                 
+                                //write modifs to data.json
                                 node_fs.writeFile(node_path.join(systemConfig["syncPath"],'data.json'), JSON.stringify(data), (err) => {
                                     if (err) {
                                         alert("An error ocurred updating the file" + err.message);
