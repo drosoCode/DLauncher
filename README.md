@@ -1,2 +1,2 @@
 # DLauncher
-Simple electron launcher
+Simple electron game launcher
