@@ -106,7 +106,7 @@
                                 //sync files for this game
                                 ipcRenderer.send('background-sync', {"type":"sync","data":gameList.indexOf(activeGame)})
 
-                                var timeDiff = parseFloat(((new Date()-startTime)/(1000*60*60*60)).toFixed(1));
+                                var timeDiff = parseFloat(((new Date()-startTime)/(1000*60*60)).toFixed(1));
                                 
                                 if(debug)
                                 {                                
