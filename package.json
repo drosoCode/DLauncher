@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/drosoCode/DLauncher#readme",
   "devDependencies": {
-    "electron": "^5.0.6"
+    "electron": "^9.4.0"
   },
   "dependencies": {
     "auto-launch": "^5.0.5",
